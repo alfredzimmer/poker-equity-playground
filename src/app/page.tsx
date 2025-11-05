@@ -1,63 +1,339 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import type { Player, Card, OddsResult } from '@/lib/types';
+import CardDisplay from '@/components/CardDisplay';
+import CardSelectorGrid from '@/components/CardSelectorGrid';
+import PieChart from '@/components/PieChart';
+import { calculateOdds } from '@/lib/calculator';
+
+type CardPosition = {
+  playerIndex: number;
+  cardIndex: 0 | 1;
+} | {
+  type: 'community';
+  cardIndex: number;
+} | null;
+
+// Player colors
+const PLAYER_COLORS = [
+  '#3B82F6', // Blue
+  '#EF4444', // Red
+  '#10B981', // Green
+  '#F59E0B', // Amber
+  '#8B5CF6', // Purple
+  '#EC4899', // Pink
+  '#14B8A6', // Teal
+  '#F97316', // Orange
+  '#6366F1', // Indigo
+];
 
 export default function Home() {
+  const [players, setPlayers] = useState<Player[]>([
+    { id: '1', name: 'Player 1', cards: [null, null] },
+    { id: '2', name: 'Player 2', cards: [null, null] }
+  ]);
+  const [communityCards, setCommunityCards] = useState<(Card | null)[]>([null, null, null, null, null]);
+  const [odds, setOdds] = useState<OddsResult[]>([]);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<CardPosition>({ playerIndex: 0, cardIndex: 0 });
+
+  // Get all used cards
+  const usedCards = useMemo(() => {
+    const cards: (Card | null)[] = [];
+    for (const player of players) {
+      cards.push(player.cards[0], player.cards[1]);
+    }
+    cards.push(...communityCards);
+    return cards;
+  }, [players, communityCards]);
+
+  // Auto-calculate odds when cards change
+  useEffect(() => {
+    const validPlayers = players.filter(p => p.cards[0] && p.cards[1]);
+    if (validPlayers.length < 2) {
+      setOdds([]);
+      return;
+    }
+
+    setIsCalculating(true);
+    const timer = setTimeout(() => {
+      const result = calculateOdds(players, communityCards, 2000);
+      setOdds(result);
+      setIsCalculating(false);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [players, communityCards]);
+
+  const handleCardSelect = (card: Card) => {
+    if (!selectedPosition) return;
+
+    if ('type' in selectedPosition && selectedPosition.type === 'community') {
+      const newCommunityCards = [...communityCards];
+      newCommunityCards[selectedPosition.cardIndex] = card;
+      setCommunityCards(newCommunityCards);
+      // Move to next empty slot after update
+      setTimeout(() => findNextEmptySlot(newCommunityCards, players), 0);
+    } else if ('playerIndex' in selectedPosition) {
+      const newPlayers = [...players];
+      newPlayers[selectedPosition.playerIndex].cards[selectedPosition.cardIndex] = card;
+      setPlayers(newPlayers);
+      // Move to next empty slot after update
+      setTimeout(() => findNextEmptySlot(communityCards, newPlayers), 0);
+    }
+  };
+
+  const handleCardRemove = (position: CardPosition) => {
+    if (!position) return;
+
+    if ('type' in position && position.type === 'community') {
+      const newCommunityCards = [...communityCards];
+      newCommunityCards[position.cardIndex] = null;
+      setCommunityCards(newCommunityCards);
+    } else if ('playerIndex' in position) {
+      const newPlayers = [...players];
+      newPlayers[position.playerIndex].cards[position.cardIndex] = null;
+      setPlayers(newPlayers);
+    }
+    
+    // Select the slot that was just cleared
+    setSelectedPosition(position);
+  };
+
+  const findNextEmptySlot = (community: (Card | null)[] = communityCards, playersList: Player[] = players) => {
+    // Check player cards first
+    for (let i = 0; i < playersList.length; i++) {
+      if (!playersList[i].cards[0]) {
+        setSelectedPosition({ playerIndex: i, cardIndex: 0 });
+        return;
+      }
+      if (!playersList[i].cards[1]) {
+        setSelectedPosition({ playerIndex: i, cardIndex: 1 });
+        return;
+      }
+    }
+    
+    // Check community cards
+    for (let i = 0; i < community.length; i++) {
+      if (!community[i]) {
+        setSelectedPosition({ type: 'community', cardIndex: i });
+        return;
+      }
+    }
+    
+    // If all slots filled, clear selection
+    setSelectedPosition(null);
+  };
+
+  const clearAll = () => {
+    setPlayers([
+      { id: '1', name: 'Player 1', cards: [null, null] },
+      { id: '2', name: 'Player 2', cards: [null, null] }
+    ]);
+    setCommunityCards([null, null, null, null, null]);
+    setOdds([]);
+    setSelectedPosition({ playerIndex: 0, cardIndex: 0 });
+  };
+
+  const addPlayer = () => {
+    const newId = (Math.max(...players.map(p => Number.parseInt(p.id)), 0) + 1).toString();
+    setPlayers([...players, { 
+      id: newId, 
+      name: `Player ${newId}`, 
+      cards: [null, null] 
+    }]);
+  };
+
+  const removePlayer = (index: number) => {
+    if (players.length <= 2) return;
+    
+    const newPlayers = players.filter((_, i) => i !== index);
+    setPlayers(newPlayers);
+    
+    // Reset selection to first player's first card after removal
+    setSelectedPosition({ playerIndex: 0, cardIndex: 0 });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <main className="container mx-auto px-4 py-4 max-w-[1800px]">
+        {/* Header */}
+        <div className="mb-4 text-center">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+            ♠️ Poker Odds Calculator
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Side - Players & Community Cards */}
+          <div className="space-y-3">
+            {/* Players Section */}
+            <div className="space-y-3">
+              {players.map((player, playerIndex) => {
+                const playerOdds = odds.find(o => o.playerId === player.id);
+                const hasCompleteHand = player.cards[0] && player.cards[1];
+                const playerColor = PLAYER_COLORS[playerIndex % PLAYER_COLORS.length];
+                
+                return (
+                  <div 
+                    key={player.id} 
+                    className="p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-sm"
+                    style={{ borderLeftWidth: '6px', borderLeftColor: playerColor }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: playerColor }}
+                          />
+                          <h2 className="text-lg font-semibold text-gray-900 dark:text-white min-w-[90px]">
+                            {player.name}:
+                          </h2>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className={`${selectedPosition && 'playerIndex' in selectedPosition && selectedPosition.playerIndex === playerIndex && selectedPosition.cardIndex === 0 ? 'ring-4 ring-blue-500 rounded-lg' : ''}`}>
+                            <CardDisplay
+                              card={player.cards[0]}
+                              onClick={() => {
+                                if (player.cards[0]) {
+                                  handleCardRemove({ playerIndex, cardIndex: 0 });
+                                } else {
+                                  setSelectedPosition({ playerIndex, cardIndex: 0 });
+                                }
+                              }}
+                              isSelectable={true}
+                            />
+                          </div>
+                          <div className={`${selectedPosition && 'playerIndex' in selectedPosition && selectedPosition.playerIndex === playerIndex && selectedPosition.cardIndex === 1 ? 'ring-4 ring-blue-500 rounded-lg' : ''}`}>
+                            <CardDisplay
+                              card={player.cards[1]}
+                              onClick={() => {
+                                if (player.cards[1]) {
+                                  handleCardRemove({ playerIndex, cardIndex: 1 });
+                                } else {
+                                  setSelectedPosition({ playerIndex, cardIndex: 1 });
+                                }
+                              }}
+                              isSelectable={true}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {hasCompleteHand && playerOdds && (
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                              {playerOdds.winPercentage.toFixed(1)}%
+                            </div>
+                            {playerOdds.tiePercentage > 0.1 && (
+                              <div className="text-xs text-gray-600 dark:text-gray-400">
+                                Tie: {playerOdds.tiePercentage.toFixed(1)}%
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {players.length > 2 && (
+                          <button
+                            onClick={() => removePlayer(playerIndex)}
+                            className="px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Community Cards */}
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white min-w-[90px]">
+                  Board:
+                </h2>
+                <div className="flex gap-2">
+                  {communityCards.map((card, index) => (
+                    <div 
+                      key={index}
+                      className={`${selectedPosition && 'type' in selectedPosition && selectedPosition.type === 'community' && selectedPosition.cardIndex === index ? 'ring-4 ring-blue-500 rounded-lg' : ''}`}
+                    >
+                      <CardDisplay
+                        card={card}
+                        onClick={() => {
+                          if (card) {
+                            handleCardRemove({ type: 'community', cardIndex: index });
+                          } else {
+                            setSelectedPosition({ type: 'community', cardIndex: index });
+                          }
+                        }}
+                        isSelectable={true}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex gap-2">
+              <button
+                onClick={addPlayer}
+                disabled={players.length >= 9}
+                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors text-sm"
+              >
+                + Add Player
+              </button>
+              <button
+                onClick={clearAll}
+                className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium transition-colors text-sm"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+
+          {/* Right Side - Card Selector */}
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <p className="text-center text-base text-gray-700 dark:text-gray-300 mb-3 font-semibold">
+                {selectedPosition && 'type' in selectedPosition && selectedPosition.type === 'community' 
+                  ? `Community Card ${selectedPosition.cardIndex + 1}`
+                  : selectedPosition && 'playerIndex' in selectedPosition
+                  ? `${players[selectedPosition.playerIndex].name} - Card ${selectedPosition.cardIndex + 1}`
+                  : 'Select a card'}
+              </p>
+              <CardSelectorGrid
+                usedCards={usedCards}
+                onCardSelect={handleCardSelect}
+              />
+            </div>
+
+            {/* Pie Chart - Always visible */}
+            <PieChart
+              data={
+                odds.length === 0 
+                  ? [{ label: 'Tie', value: 100, color: '#64748b' }] // Show 100% tie when no data
+                  : [
+                      ...odds.map((playerOdds, index) => ({
+                        label: playerOdds.playerName,
+                        value: playerOdds.winPercentage, // Only wins, not ties
+                        color: PLAYER_COLORS[players.findIndex(p => p.id === playerOdds.playerId) % PLAYER_COLORS.length]
+                      })),
+                      // Add tie percentage if any
+                      ...(odds.some(o => o.tiePercentage > 0.1) ? [{
+                        label: 'Tie',
+                        value: odds[0].tiePercentage,
+                        color: '#64748b' // Slate gray
+                      }] : [])
+                    ]
+              }
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
       </main>
     </div>
