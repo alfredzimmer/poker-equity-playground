@@ -31,9 +31,9 @@ export default function CardSelectorGrid({ usedCards, onCardSelect }: CardSelect
 
   return (
     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {SUITS.map(suit => (
-          <div key={suit} className="flex gap-1 justify-center">
+          <div key={suit} className="flex gap-1.5 justify-center">
             {RANKS.map(rank => {
               const used = isCardUsed(rank, suit);
               
@@ -44,17 +44,17 @@ export default function CardSelectorGrid({ usedCards, onCardSelect }: CardSelect
                   onClick={() => !used && onCardSelect({ rank, suit })}
                   disabled={used}
                   className={`
-                    w-14 h-20 text-sm font-bold rounded border-2 transition-all
+                    w-12 h-16 text-xs font-bold rounded border-2 transition-all
                     ${used ? 
                       'opacity-30 cursor-not-allowed bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600' : 
                       'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:border-blue-500 hover:shadow-md hover:scale-105 cursor-pointer'}
                   `}
                 >
-                  <div className="flex flex-col items-center">
-                    <span className={`text-sm ${!used ? suitColors[suit] : 'text-gray-400'}`}>
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <span className={`text-xs ${!used ? suitColors[suit] : 'text-gray-400'}`}>
                       {rank}
                     </span>
-                    <span className={`text-3xl ${!used ? suitColors[suit] : 'text-gray-400'}`}>
+                    <span className={`text-3xl leading-none ${!used ? suitColors[suit] : 'text-gray-400'}`}>
                       {suitSymbols[suit]}
                     </span>
                   </div>

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Poker Odds Calculator - Texas Hold'em Win Probability",
-  description: "Calculate winning probabilities for Texas Hold'em poker with multiple players. Real-time odds calculation using Monte Carlo simulation.",
+  title: "Poker Equity Calculator - Texas Hold'em Win Probability",
+  description: "Calculate equity and winning probabilities for Texas Hold'em poker. Real-time odds calculation using Monte Carlo simulation. Supports multi-player comparisons and single-hand strength evaluation.",
 };
 
 export default function RootLayout({

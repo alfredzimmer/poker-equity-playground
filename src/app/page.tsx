@@ -15,17 +15,17 @@ type CardPosition = {
   cardIndex: number;
 } | null;
 
-// Player colors
+// Player colors - redesigned palette with distinct colors
 const PLAYER_COLORS = [
-  '#3B82F6', // Blue
-  '#EF4444', // Red
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#14B8A6', // Teal
-  '#F97316', // Orange
-  '#6366F1', // Indigo
+  '#2563EB', // Bright Blue
+  '#DC2626', // Bright Red  
+  '#059669', // Emerald Green
+  '#D97706', // Orange
+  '#7C3AED', // Violet
+  '#DB2777', // Hot Pink
+  '#0891B2', // Cyan
+  '#EA580C', // Deep Orange
+  '#4F46E5', // Indigo
 ];
 
 export default function Home() {
@@ -37,6 +37,52 @@ export default function Home() {
   const [odds, setOdds] = useState<OddsResult[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<CardPosition>({ playerIndex: 0, cardIndex: 0 });
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load cached data from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedPlayers = localStorage.getItem('poker-odds-players');
+        const cachedCommunityCards = localStorage.getItem('poker-odds-community-cards');
+        
+        if (cachedPlayers) {
+          const parsedPlayers = JSON.parse(cachedPlayers);
+          setPlayers(parsedPlayers);
+        }
+        
+        if (cachedCommunityCards) {
+          const parsedCommunityCards = JSON.parse(cachedCommunityCards);
+          setCommunityCards(parsedCommunityCards);
+        }
+      } catch (error) {
+        console.error('Error loading cached data:', error);
+      }
+      setIsLoaded(true);
+    }
+  }, []);
+
+  // Save players to localStorage whenever they change
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('poker-odds-players', JSON.stringify(players));
+      } catch (error) {
+        console.error('Error saving players to cache:', error);
+      }
+    }
+  }, [players, isLoaded]);
+
+  // Save community cards to localStorage whenever they change
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('poker-odds-community-cards', JSON.stringify(communityCards));
+      } catch (error) {
+        console.error('Error saving community cards to cache:', error);
+      }
+    }
+  }, [communityCards, isLoaded]);
 
   // Get all used cards
   const usedCards = useMemo(() => {
@@ -155,13 +201,26 @@ export default function Home() {
   };
 
   const clearAll = () => {
-    setPlayers([
+    const defaultPlayers: Player[] = [
       { id: '1', name: 'Player 1', cards: [null, null] },
       { id: '2', name: 'Player 2', cards: [null, null] }
-    ]);
-    setCommunityCards([null, null, null, null, null]);
+    ];
+    const defaultCommunityCards: (Card | null)[] = [null, null, null, null, null];
+    
+    setPlayers(defaultPlayers);
+    setCommunityCards(defaultCommunityCards);
     setOdds([]);
     setSelectedPosition({ playerIndex: 0, cardIndex: 0 });
+    
+    // Clear localStorage cache
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('poker-odds-players');
+        localStorage.removeItem('poker-odds-community-cards');
+      } catch (error) {
+        console.error('Error clearing cache:', error);
+      }
+    }
   };
 
   const addPlayer = () => {
@@ -198,12 +257,15 @@ export default function Home() {
         <span className="font-medium">GitHub</span>
       </a>
 
-      <main className="container mx-auto px-4 py-4 max-w-[1800px]">
+      <main className="container mx-auto px-4 py-8 max-w-[1800px]">
         {/* Header */}
-        <div className="mb-4 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-            ♠️ Poker Odds Calculator
-          </h1>
+        <div className="mb-6">
+          <div className="text-center mb-2">
+            <h1 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
+              Poker Equity Calculator
+            </h1>
+          </div>
+          {/* <div className="h-1 w-32 mx-auto bg-linear-to-r from-blue-600 to-purple-600 rounded-full"></div> */}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -358,7 +420,7 @@ export default function Home() {
             <PieChart
               data={
                 odds.length === 0 
-                  ? [{ label: 'Tie', value: 100, color: '#64748b' }] // Show 100% tie when no data
+                  ? [{ label: 'Tie', value: 100, color: '#64748B' }] // Gray for tie when no data
                   : isSingleHandMode
                     ? [
                         // Single hand mode: show player win, tie, and opponent win
@@ -370,20 +432,28 @@ export default function Home() {
                         ...(odds[0].tiePercentage > 0.1 ? [{
                           label: 'Tie',
                           value: odds[0].tiePercentage,
-                          color: '#64748b' // Slate gray
+                          color: '#64748B' // Slate gray
                         }] : []),
                         {
                           label: 'Opponent Wins',
                           value: 100 - odds[0].winPercentage - odds[0].tiePercentage,
-                          color: '#DC2626' // Red for opponent
+                          color: '#475569' // Darker slate - distinct from tie gray
                         }
                       ]
-                    : odds.map((playerOdds, index) => ({
-                        // Multi-player mode: show each player's total equity
-                        label: playerOdds.playerName,
-                        value: playerOdds.winPercentage + playerOdds.tiePercentage,
-                        color: PLAYER_COLORS[players.findIndex(p => p.id === playerOdds.playerId) % PLAYER_COLORS.length]
-                      }))
+                    : [
+                        // Multi-player mode: show each player's WIN only, plus separate tie
+                        ...odds.map((playerOdds, index) => ({
+                          label: playerOdds.playerName,
+                          value: playerOdds.winPercentage, // Only wins, not equity
+                          color: PLAYER_COLORS[players.findIndex(p => p.id === playerOdds.playerId) % PLAYER_COLORS.length]
+                        })),
+                        // Add shared tie segment if any
+                        ...(odds.length > 0 && odds[0].tiePercentage > 0.1 ? [{
+                          label: 'Tie',
+                          value: odds[0].tiePercentage,
+                          color: '#64748B' // Slate gray
+                        }] : [])
+                      ]
               }
             />
           </div>
