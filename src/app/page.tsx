@@ -5,6 +5,7 @@ import type { Player, Card, OddsResult } from '@/lib/types';
 import CardDisplay from '@/components/CardDisplay';
 import CardSelectorGrid from '@/components/CardSelectorGrid';
 import PieChart from '@/components/PieChart';
+import ThemeToggle from '@/components/ThemeToggle';
 import { calculateOdds, calculateHandStrength } from '@/lib/calculator';
 
 type CardPosition = {
@@ -244,6 +245,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Theme Toggle */}
+      <div className="fixed top-4 left-4 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* GitHub Link */}
       <a
         href="https://github.com/alfredzimmer/poker-odds"

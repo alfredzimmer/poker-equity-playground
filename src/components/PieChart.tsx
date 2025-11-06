@@ -86,9 +86,10 @@ export default function PieChart({ data }: PieChartProps) {
                 animationBegin={0}
                 animationDuration={800}
                 animationEasing="ease-out"
+                stroke="none"
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                 ))}
               </Pie>
             </RechartsPie>
